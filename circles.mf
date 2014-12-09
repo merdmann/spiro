@@ -1,0 +1,9 @@
+circle 100
+move 0 100
+circle 100
+move 100 0
+circle 100
+move 0 -100
+circle 100
+move 100 100
+circle 39

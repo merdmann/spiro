@@ -1,0 +1,16 @@
+#
+# THis is a simple test for spiro
+#
+
+# load the basic pattern
+load circles
+
+# This is the generator which is used to generate the figure
+move 400 400
+turn 10.000000
+draw circles
+store generator
+dir
+
+# generate the ornament
+36 generator

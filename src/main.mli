@@ -2,6 +2,7 @@ exception Session_End
 exception Unknown_Command
 exception Syntax_Error
 exception File_Not_Existing
+
 type session_state_type = {
   mutable repeat : int;
   mutable interp : Script.interpreter_state_type;
@@ -10,6 +11,7 @@ type session_state_type = {
   mutable screen_size_y : int;
   mutable editor : string;
 }
+
 val state : session_state_type
 val root_frame : Script.frame_type
 val next_token : Genlex.token Stream.t -> Genlex.token

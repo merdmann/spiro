@@ -25,7 +25,8 @@ open Files;;
 open Printf;;
 open String;;
 open Filename;;
-open Unix;;
+(* open Unix;; *)
+open Sys;;
 open Printexc;;
 open Transformation;;
 
@@ -37,27 +38,28 @@ exception File_Not_Existing ;;
 (** the session state is stored here *)
 type session_state_type = 
 { 
-	 mutable repeat   : int;
-	 mutable interp   : interpreter_state_type;
-   mutable active   : bool ; 		    (* command loop is still active *)
-   mutable screen_size_x : int;
-   mutable screen_size_y : int;          
-	 mutable editor   : string         
+	mutable repeat   : int;
+	mutable interp   : interpreter_state_type;
+   	mutable active   : bool ; 		    (* command loop is still active *)
+   	mutable screen_size_x : int;
+   	mutable screen_size_y : int;          
+	mutable editor   : string         
 };;
   
 (* setup the initial state of the application *)
-let state = { active = true; 
-							repeat = 1;
-						 interp=make_interpreter();
-             screen_size_x = 900;
-             screen_size_y = 900;
-						 editor="gedit" }
-;;
+let state = { 
+	active = true; 
+	repeat = 1;
+	interp=make_interpreter();
+    screen_size_x = 900;
+    screen_size_y = 900;
+	editor="gedit" 
+};;
 
-let  reset_frame f = 
-			f.origin <- make_point 0 0;
-			f.turn <- 0.0;
-			f.scale <- 1.0 
+let reset_frame f = 
+		f.origin <- make_point 0 0;
+		f.turn <- 0.0;
+		f.scale <- 1.0 
 ;;
 
 let root_frame = { origin = make_point 0 0; turn=0.0; scale=1.0 } ;;
@@ -230,15 +232,15 @@ let rec execute_command token =
     match (Stream.next token) with
 			(* cursor movements *)
         Kwd "move"   -> do_move token
-			| Kwd "set"    -> do_set token				
-			| Kwd "turn"   -> do_turn token
-			| Kwd "scale"  -> do_scale token 
+		| Kwd "set"    -> do_set token				
+		| Kwd "turn"   -> do_turn token
+		| Kwd "scale"  -> do_scale token 
 			(* grafical object *)
-      | Kwd "rect"   -> do_rectangle token
-      | Kwd "circle" -> do_circle token
-      | Kwd "line"   -> do_line token        
-      | Kwd "draw"   -> do_draw token
-			| Int value    -> add state.interp (Repeat value); execute_command token
+      	| Kwd "rect"   -> do_rectangle token
+      	| Kwd "circle" -> do_circle token
+      	| Kwd "line"   -> do_line token        
+      	| Kwd "draw"   -> do_draw token
+		| Int value    -> add state.interp (Repeat value); execute_command token
 			(* management functions *)												
 			| Kwd "clear"  -> do_clear token
       | Kwd "quit"   -> raise Session_End
@@ -276,13 +278,9 @@ and do_edit t =
 				let chn = open_out tmp in
 					display_source ~chan:chn f;
 					close_out chn;
-					let result = system ("vi " ^ tmp) in begin
-						match result with 
-							WEXITED rc -> 
-									do_clear t ;
-									do_batch tmp;
-									store state.interp name;
-						| _ -> printf "Error ***\n"
+					let result = command ("vi " ^ tmp) in begin
+						if( result != 0 ) then
+						    printf "Error ***\n";
 					end 
 			| _ -> raise Syntax_Error
 

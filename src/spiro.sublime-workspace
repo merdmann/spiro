@@ -1,0 +1,291 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+		]
+	},
+	"buffers":
+	[
+		{
+			"file": "files.ml",
+			"settings":
+			{
+				"buffer_size": 248,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"contents": "(*  This file is part of Spiro.\n\n    Spiro is free software: you can redistribute it and/or modify\n    it under the terms of the GNU General Public License as published by\n    the Free Software Foundation, either version 3 of the License, or\n    (at your option) any later version.\n\n    Spiro is distributed in the hope that it will be useful,\n    but WITHOUT ANY WARRANTY; without even the implied warranty of\n    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n    GNU General Public License for more details.\n\n    You should have received a copy of the GNU General Public License\n    along with Spiro.  If not, see <http://www.gnu.org/licenses/>.\n\n*)\n\n(** This module draws the contents of a metafile in a given refernce frame *)\n\nopen Graphics;;\nopen Drawables;;\nopen Printf;;\nopen Transformation;;\n\nexception Metafile_Not_Found ;;\nexception End_of_Metafile ;;\n\ntype form_type = Rectangle of Drawables.rectangle_type \n    | Line of Drawables.line_type				(* draw a line *)\n    | Circle of Drawables.circle_type 			(* draw a circle *)\n    | Point of Drawables.point_type				(* draw a point *)\n    | Set of Drawables.point_type    			(* set the cursor *)\n    | Move of Drawables.move_type    			(* move the cursor *) \n    | Draw of metafile_type				        (* draw a meta file *)\n	| Rotate of float                       	(* rotate by a given turn *)\n	| Scale of float                        	(* scale *)\n	| Repeat of int                         	(* repeat the next operation n times *)\n  	| Null\n	and metafile_type = { \n	 	mutable name  : string;\n   		mutable items : form_type list;		(* list of elements *)     \n	};;\n\n\n(* reference frame *)\ntype frame_type = {\n	mutable origin : point_type;\n	mutable turn   : float;\n	mutable scale  : float \n};;\n\n\n(* this maintains the intepreter state *)\ntype interpreter_state_type = \n{\n	mutable cursor  : point_type ;\n	mutable current : metafile_type;\n	mutable files   : (string * metafile_type) list;\n};;\n\nlet make_metafile mf_name = \n	if mf_name = \"\" then  { name = \"xxxyyy\" ; items = [] } else { name = mf_name; items = [] };; \n\n(* make an blank interpreter *)\nlet make_interpreter () = {\n  cursor = make_point 0 0;\n	current = make_metafile \"\"; \n	files = [ (\"\", make_metafile \"\" ) ]};;\n\nlet make_frame ?(myturn = 0.0) ?(myscale = 1.0) x y = \n				{ origin = make_point x y; turn = myturn; scale = myscale};;\n\n	\nlet frame_to_string f = sprintf \"origin=%s turn=%f scale=%f\" (to_string f.origin) f.turn f.scale ;;		\n				\n(* get the current cursor *)\nlet get_cursor interp =\n	interp.cursor\n;;\n\n(* set the cursor *)\nlet set_cursor interp value =\n	interp.cursor <- value\n;;	\n\n(* list the files stored in the interpreter *)\nlet list_metafiles interp = \n	List.iter (fun x -> \n			let name = (fst x) in\n			let file = (snd x) in\n		  	if name = \"\" then\n					printf \"%s %d\\n\" file.name (List.length file.items)\n				else \n					printf \"%s %d\\n\" name (List.length file.items) \n	  ) interp.files \n;;\n\n(* store the current metafile with a given name in the interpreter *)\nlet store interp name =\n	let exist n  = \n		try List.assoc n interp.files; true\n		with Not_found -> false in \n			\n	if (exist name) then\n		interp.files <- List.remove_assoc name interp.files ;\n				\n  interp.current.name <- name ;\n  interp.files <- List.append interp.files [ ( name, interp.current ) ];\n	interp.current <- make_metafile \"\"\n;;\n\n(* add an item to the metafile *)\nlet add interp item = \n	interp.current.items <- List.append interp.current.items [ item ] \n;;\n\n(* clear the current metafile *)\nlet clear_metafile interp = \n	interp.current <- make_metafile \"\";\n;;		\n\n(* get a metafile by name *)\nlet get_metafile interp name = \n	if name = \"\" then\n		 interp.current \n  else \n		try \n			List.assoc name interp.files \n		with Not_found ->\n			raise Metafile_Not_Found\n;;\n\n(* draw the metafile in a given frame *)\nlet rec draw interp f frame =\n		let cursor = make_point 0 0 in\n		let myframe = frame in \n		let repeat = ref 1 in\n\n	\n	  (* printf \"Draw %s %s\\n\" f.name (frame_to_string myframe); *)\n		let tr p = translation ( scale myframe.scale (rotate myframe.turn p)) myframe.origin in  \n		\n		List.iter (fun o ->\n			let c = tr cursor in  \n    	let ox = c.x  in\n    	let oy = c.y  in \n      	moveto ox oy;\n				draw_circle ox oy 5;\n				\n  			match o with\n          (Line a)      -> let p = tr a.right_point in rlineto p.x p.y\n        | (Circle a)    -> draw_circle ox oy (scale_int a.radius myframe.scale)\n        | (Rectangle a) -> let connect x y  = \n															let q = tr (translation (make_point x y) cursor) in lineto q.x q.y \n																in\n																	connect a.right_corner.x 0;\n																	connect a.right_corner.x a.right_corner.y;\n																	connect  0 a.right_corner.y;\n																	connect 0 0\n        | (Point a)     -> plot ox oy\n        | (Draw a)      -> myframe.origin <- cursor ; \n													 for i=1 to !repeat do draw interp a myframe done\n				| (Scale a)     -> myframe.scale <- a\n				| (Rotate a)    -> myframe.turn <- myframe.turn +. a \n        | (Set a)       -> cursor.x <- a.y ; cursor.y <- a.y\n				| (Move a)      -> cursor.x <- cursor.x + a.dx; cursor.y <- cursor.y + a.dy \n				| (Repeat a)    -> (* in case of a repeat we create a new reference fram *)\n													repeat := a \n        | _             -> print_endline \"Unknown operation\" \n     	)\n  	 	f.items ;\n			\n			interp.cursor <- cursor\n;;\n\n(* draw the commands which are stored in the interpreter *)\nlet display interp frame name  = \n	if name = \"\" then\n		draw interp interp.current frame\n	else \n		let metafile = List.assoc( name ) interp.files in\n			draw interp metafile frame\n;;\n\n(* dump a metafile on the standard output *)\nlet display_source ?(chan=stdout) f  =   \n	let cnt = ref 0 in\n		List.iter (fun o ->  \n				let operation = match o with\n          		(Line a)      -> sprintf \"line %s\" (to_string a.right_point)\n        		| (Circle a)    -> sprintf \"circle %d\" a.radius \n        		| (Rectangle a) -> sprintf \"rect %s\" (to_string a.right_corner)\n        		| (Point a)     -> sprintf \"plot %s\" (to_string a)\n        		| (Set a)       -> sprintf \"set %s\"  (to_string a)\n						| (Move a)      -> sprintf \"move %d %d\" a.dx a.dy \n        		| (Draw a)      -> sprintf \"draw %s\" a.name\n						| (Repeat a)    -> sprintf \"repeat %d\" a\n						| (Rotate a)    -> sprintf \"turn %f\" (deg_from_rad a)\n						| (Scale a)     -> sprintf \"scale %f\" a \n        		| _             -> sprintf \"unknown operation\" in				\n			  				if chan = stdout then begin\n									cnt := !cnt + 1;\n									printf \"%2.2d %s\\n\" !cnt operation\n									end \n			  				else \n			 					fprintf chan \"%s\\n\" operation\n			) \n			f.items \n;;\n",
+			"file": "script.ml",
+			"file_size": 6616,
+			"file_write_time": 129820948960000000,
+			"settings":
+			{
+				"buffer_size": 6625,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "main.mli",
+			"settings":
+			{
+				"buffer_size": 1425,
+				"line_ending": "Unix"
+			}
+		}
+	],
+	"build_system": "",
+	"command_palette":
+	{
+		"height": 0.0,
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"console":
+	{
+		"height": 0.0,
+		"history":
+		[
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"expanded_folders":
+	[
+		"/C/Users/MIchael/Documents/Sources/spiro",
+		"/C/Users/MIchael/Documents/Sources/spiro/src"
+	],
+	"file_history":
+	[
+		"/D/Michael/OneDrive/www/WebMatrix/homepage/theme/rt14gs/css/fonts.css",
+		"/D/Michael/OneDrive/www/WebMatrix/homepage/theme/rt14gs/css/structure.css",
+		"/D/Michael/OneDrive/www/WebMatrix/homepage/theme/rt14gs/css/styles.css",
+		"/D/Michael/OneDrive/www/WebMatrix/homepage/theme/rt14gs/functions.php",
+		"/D/Michael/OneDrive/www/WebMatrix/homepage/theme/rt14gs/template.php",
+		"/Y/Software/Archive/old_cds/fd_pcwdsk1/src/clipline.c",
+		"/Y/Software/Archive/old_cds/fd_case/case/idl/dmlpps.c",
+		"/D/Michael/OneDrive/www/WebMatrix/homepage/theme/rt14gs/js/dd_belatedpng.js",
+		"/C/Users/MIchael/AppData/Roaming/Sublime Text 3/Packages/Default/Default (Windows).sublime-keymap",
+		"/D/Michael/OneDrive/www/WebMatrix/homepage/data/pages/muon-detector.xml",
+		"/D/Michael/OneDrive/www/WebMatrix/homepage/data/pages/a-google-script-example.xml",
+		"/C/Users/MIchael/Documents/Sources/tam/tamtest.gpr",
+		"/C/Users/MIchael/Documents/Sources/tam/trunk/Makefile",
+		"/C/Users/MIchael/Documents/Sources/tam/.gitignore",
+		"/C/Users/MIchael/Documents/Sources/tam/tam.gpr",
+		"/C/Users/MIchael/Documents/Sources/tam/README.md",
+		"/C/Users/MIchael/Documents/Sources/tam/.git/config",
+		"/C/Users/MIchael/Documents/adventure/trunk/Location.cpp",
+		"/C/Users/MIchael/Documents/Sources/Adventure/trunk/Door.cpp"
+	],
+	"find":
+	{
+		"height": 0.0
+	},
+	"find_in_files":
+	{
+		"height": 0.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"selected": 1,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "files.ml",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 248,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/OCaml/OCaml.tmLanguage"
+						},
+						"translation.x": -0.0,
+						"translation.y": 54.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "script.ml",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 6625,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								2470,
+								2470
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/OCaml/OCaml.tmLanguage"
+						},
+						"translation.x": 72.0,
+						"translation.y": 457.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "main.mli",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1425,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/OCaml/OCaml.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
+				}
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 0.0
+	},
+	"input":
+	{
+		"height": 0.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"project": "spiro.sublime-project",
+	"replace":
+	{
+		"height": 0.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 0.0,
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_symbol":
+	{
+		"height": 0.0,
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"selected_group": 0,
+	"settings":
+	{
+	},
+	"show_minimap": true,
+	"show_open_files": false,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 232.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
+}

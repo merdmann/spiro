@@ -64,6 +64,7 @@ let reset_frame f =
 
 let root_frame = { origin = make_point 0 0; turn=0.0; scale=1.0 } ;;
 
+
 (** get next token; if there is nothing found we return "" keyword in order 
  *  to simplyfy the parsing of the command line arguments. 
  *)
@@ -91,13 +92,13 @@ let get_distance t =
       | _ -> raise Syntax_Error   
 ;;
 
-(** get a syntactical element <name> from the input stream *)
 let get_name t =
   let name = next_token t in
   match name with 
     Ident x -> x;
     | _ -> raise Syntax_Error 
 ;;
+
         
 (** set the cursor to the specified point *)
 let do_set t = 
@@ -168,6 +169,7 @@ let do_draw t =
     | _ -> display state.interp root_frame ""
 ;;  
 
+
 (** set the screen dimensions *)
 let do_resize x y = 
   state.screen_size_x <- x;
@@ -178,7 +180,7 @@ let do_resize x y =
 (** resize the visible canvas *)
 let do_screen t =
   match Stream.next t, Stream.next t with
-      Int x, Int y -> do_resize x y
+    Int x, Int y -> do_resize x y
     | Int x, _ -> do_resize x state.screen_size_y
     | _ -> raise Syntax_Error
 ;;
@@ -190,12 +192,10 @@ let do_list t =
     | _ -> display_source (get_metafile state.interp "") 
 ;; 
 
-(** print a few state informations *)
 let do_info t = 
 	printf " Scale=%f, Turn=%f, origin=%s, screen_size=%dx%d \n" 
-				root_frame.scale root_frame.turn 
-				(Drawables.to_string root_frame.origin)
-				state.screen_size_x state.screen_size_y
+							root_frame.scale root_frame.turn (Drawables.to_string root_frame.origin)
+							state.screen_size_x state.screen_size_y
 ;;
 
 (** Save the given metafile f into file with the name f.mf *) 

@@ -1,0 +1,14 @@
+<project name="Src" sorted = "Yes">
+   <file>C:\Users\MIchael\Documents\Sources\spiro\src\drawables.ml</file>
+   <file>C:\Users\MIchael\Documents\Sources\spiro\src\files.ml</file>
+   <file>C:\Users\MIchael\Documents\Sources\spiro\src\helper.ml</file>
+   <file>C:\Users\MIchael\Documents\Sources\spiro\src\main.ml</file>
+   <file>C:\Users\MIchael\Documents\Sources\spiro\src\script.ml</file>
+   <file>C:\Users\MIchael\Documents\Sources\spiro\src\transformation.ml</file>
+   <file>C:\Users\MIchael\Documents\Sources\spiro\src\drawables.mli</file>
+   <file>C:\Users\MIchael\Documents\Sources\spiro\src\files.mli</file>
+   <file>C:\Users\MIchael\Documents\Sources\spiro\src\helper.mli</file>
+   <file>C:\Users\MIchael\Documents\Sources\spiro\src\main.mli</file>
+   <file>C:\Users\MIchael\Documents\Sources\spiro\src\script.mli</file>
+   <file>C:\Users\MIchael\Documents\Sources\spiro\src\transformation.mli</file>
+</project>

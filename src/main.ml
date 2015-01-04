@@ -25,7 +25,8 @@ open Files;;
 open Printf;;
 open String;;
 open Filename;;
-open Unix;;
+(* open Unix;; *)
+open Sys;;
 open Printexc;;
 open Transformation;;
 
@@ -37,31 +38,31 @@ exception File_Not_Existing ;;
 (** the session state is stored here *)
 type session_state_type = 
 { 
-	 mutable repeat   : int;
-	 mutable interp   : interpreter_state_type;
-   mutable active   : bool ; 		    (* command loop is still active *)
-   mutable screen_size_x : int;
-   mutable screen_size_y : int;          
-	 mutable editor   : string         
+	mutable repeat   : int;
+	mutable interp   : interpreter_state_type;
+   	mutable active   : bool ; 		    (* command loop is still active *)
+   	mutable screen_size_x : int;
+   	mutable screen_size_y : int;          
+	mutable editor   : string         
 };;
   
 (* setup the initial state of the application *)
-let state = { active = true; 
-							repeat = 1;
-						 interp=make_interpreter();
-             screen_size_x = 900;
-             screen_size_y = 900;
-						 editor="gedit" }
-;;
+let state = { 
+	active = true; 
+	repeat = 1;
+	interp=make_interpreter();
+    screen_size_x = 900;
+    screen_size_y = 900;
+	editor="gedit" 
+};;
 
-let  reset_frame f = 
-			f.origin <- make_point 0 0;
-			f.turn <- 0.0;
-			f.scale <- 1.0 
+let reset_frame f = 
+		f.origin <- make_point 0 0;
+		f.turn <- 0.0;
+		f.scale <- 1.0 
 ;;
 
 let root_frame = { origin = make_point 0 0; turn=0.0; scale=1.0 } ;;
-
 
 (** get next token; if there is nothing found we return "" keyword in order 
  *  to simplyfy the parsing of the command line arguments. 
@@ -90,13 +91,13 @@ let get_distance t =
       | _ -> raise Syntax_Error   
 ;;
 
+(** get a syntactical element <name> from the input stream *)
 let get_name t =
   let name = next_token t in
   match name with 
     Ident x -> x;
     | _ -> raise Syntax_Error 
 ;;
-
         
 (** set the cursor to the specified point *)
 let do_set t = 
@@ -128,9 +129,8 @@ let do_scale t =
 
 (** create a rectangle *)
 let do_rectangle t = 
-  let lx = get_distance t in
-  	let ly = get_distance t in 
-  add state.interp (Rectangle (make_rectangle lx ly));  
+	let p = get_point t in
+ 		add state.interp (Rectangle (make_rectangle p.x p.y));  
 ;;
 
 (** create a circle *)
@@ -167,7 +167,6 @@ let do_draw t =
     | _ -> display state.interp root_frame ""
 ;;  
 
-
 (** set the screen dimensions *)
 let do_resize x y = 
   state.screen_size_x <- x;
@@ -178,7 +177,7 @@ let do_resize x y =
 (** resize the visible canvas *)
 let do_screen t =
   match Stream.next t, Stream.next t with
-    Int x, Int y -> do_resize x y
+      Int x, Int y -> do_resize x y
     | Int x, _ -> do_resize x state.screen_size_y
     | _ -> raise Syntax_Error
 ;;
@@ -190,9 +189,12 @@ let do_list t =
     | _ -> display_source (get_metafile state.interp "") 
 ;; 
 
+(** print a few state informations *)
 let do_info t = 
-	printf " Scale=%f, Turn=%f, origin=%s \n" 
-							root_frame.scale root_frame.turn (Drawables.to_string root_frame.origin)
+	printf " Scale=%f, Turn=%f, origin=%s, screen_size=%dx%d \n" 
+				root_frame.scale root_frame.turn 
+				(Drawables.to_string root_frame.origin)
+				state.screen_size_x state.screen_size_y
 ;;
 
 (** Save the given metafile f into file with the name f.mf *) 
@@ -204,7 +206,6 @@ let do_save t =
 												close_out chn;
 		| _ -> raise Syntax_Error
 ;;
-
 
 (** the list of commands *)
 let lexer = make_lexer [ 
@@ -229,21 +230,21 @@ let lexer = make_lexer [
 let rec execute_command token =
     match (Stream.next token) with
 			(* cursor movements *)
-        Kwd "move"   -> do_move token
+        	  Kwd "move"   -> do_move token
 			| Kwd "set"    -> do_set token				
 			| Kwd "turn"   -> do_turn token
 			| Kwd "scale"  -> do_scale token 
 			(* grafical object *)
-      | Kwd "rect"   -> do_rectangle token
-      | Kwd "circle" -> do_circle token
-      | Kwd "line"   -> do_line token        
-      | Kwd "draw"   -> do_draw token
+      		| Kwd "rect"   -> do_rectangle token
+      		| Kwd "circle" -> do_circle token
+      		| Kwd "line"   -> do_line token        
+      		| Kwd "draw"   -> do_draw token
 			| Int value    -> add state.interp (Repeat value); execute_command token
 			(* management functions *)												
 			| Kwd "clear"  -> do_clear token
-      | Kwd "quit"   -> raise Session_End
-      | Kwd "store"  -> do_store token      
-      | Kwd "screen" -> do_screen token		 
+      		| Kwd "quit"   -> raise Session_End
+      		| Kwd "store"  -> do_store token      
+      		| Kwd "screen" -> do_screen token		 
 			| Kwd "dir"    -> list_metafiles state.interp
 			| Kwd "list"   -> do_list token
 			| Kwd "!"      -> do_batch (get_name token)
@@ -252,15 +253,15 @@ let rec execute_command token =
 			| Kwd "edit"   -> do_edit token
 			| Kwd "?"      -> do_info token
 			(* if no keyword is matching, use the identifer as metafile name *)
-      | Ident name   ->	( try add state.interp (Draw (get_metafile state.interp name))
-					 								with Metafile_Not_Found -> raise Unknown_Command )
+      		| Ident name   -> ( try add state.interp (Draw (get_metafile state.interp name))
+					 			with Metafile_Not_Found -> raise Unknown_Command )
 			(* if nothing matches *)		
-		  | _ ->  raise Unknown_Command
-and do_batch name = 
+		  	| _ ->  raise Unknown_Command
+	and do_batch name = 
 		let chan = open_in name in
 		try 	
 			while true do		
-   			let cmd = input_line chan in
+   				let cmd = input_line chan in
 					if (length cmd) > 0 then if (get cmd 0) != '#' then begin				
 						let token = lexer (Stream.of_string cmd) in
 							execute_command token;
@@ -268,7 +269,7 @@ and do_batch name =
 			done
 		with End_of_file -> close_in chan		
 		
-and do_edit t =
+	and do_edit t =
 		match next_token t with
 			Ident name -> 
 				let f = get_metafile state.interp name in
@@ -276,21 +277,17 @@ and do_edit t =
 				let chn = open_out tmp in
 					display_source ~chan:chn f;
 					close_out chn;
-					let result = system ("vi " ^ tmp) in begin
-						match result with 
-							WEXITED rc -> 
-									do_clear t ;
-									do_batch tmp;
-									store state.interp name;
-						| _ -> printf "Error ***\n"
+					let result = command ("vi " ^ tmp) in begin
+						if( result != 0 ) then
+						    printf "Error ***\n";
 					end 
 			| _ -> raise Syntax_Error
 
-and do_load t =
-	let name = get_name t in 
-		do_clear t;
-		do_batch (name ^ ".mf");
-		store state.interp name 
+	and do_load t =
+		let name = get_name t in 
+			do_clear t;
+			do_batch (name ^ ".mf");
+			store state.interp name 
 ;;
 
 (** toplevel starts here *)
@@ -298,35 +295,39 @@ open_graph "";;
 
 let cfg : config_type = make_config_type ;;
 
-load_config "powa.cfg" cfg ;;
+load_config "spiro.cfg" cfg ;;
 
 state.screen_size_x = config_int "screen_size_x" cfg;;
 state.screen_size_y = config_int "screen_size_y" cfg;;
 
-resize_window state.screen_size_x state.screen_size_y ;;
+resize_window 600 600 (*state.screen_size_x state.screen_size_y*) ;;
+
 set_window_title "Spiro";;
+
+printf "Spiro\n";;
+printf "Copyright 2014,2015 Michael Erdmann (michael.erdmann@snafu.de)\n\n";;
 
 while state.active do
 	try 
    		begin   
-				reset_frame root_frame; 
-				display state.interp root_frame "";
+			reset_frame root_frame; 
+			display state.interp root_frame "";
      		print_point(get_cursor state.interp);
     		print_string " ? ";  
     		let cmd = read_line () in
-				   if (length cmd)>0 then
-  			   	  let token = lexer (Stream.of_string cmd) in
-    						 execute_command token;         
+				if (length cmd)>0 then
+  			   		let token = lexer (Stream.of_string cmd) in
+    					execute_command token;         
   		end 
 	with x ->
 		match x with
-     	Session_End -> 
-         	print_endline "done.";
-       		state.active <- false;
-       | File_Not_Existing -> print_endline "Error: metafile not exiting ****"
-       | Unknown_Command -> print_endline "Error: unkown command ****"
-       | Syntax_Error -> print_endline "Error: Syntactical Error ****" 
-			 | Metafile_Not_Found -> printf "Metafile not found ****\n"      
-       | _ as exn -> printf "Exception %s *******\n" (Printexc.to_string exn )
+     	 	Session_End -> 
+         		print_endline "done.";
+       			state.active <- false;
+       		| File_Not_Existing -> print_endline "Error: metafile not exiting ****"
+       		| Unknown_Command -> print_endline "Error: unkown command ****"
+       		| Syntax_Error -> print_endline "Error: Syntactical Error ****" 
+			| Metafile_Not_Found -> printf "Metafile not found ****\n"      
+       		| _ as exn -> printf "Exception %s *******\n" (Printexc.to_string exn )
 done ;;
 

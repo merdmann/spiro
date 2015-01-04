@@ -36,7 +36,7 @@ let load_config name cfg =
       if String.get line 0 != '#' then
       	let t = lexer(Stream.of_string line) in
       		match Stream.next t, Stream.next t, Stream.next t with 
-        	  Ident x, Kwd "=", Ident y ->  cfg.items <- (x,y) :: cfg.items 
+        	    Ident x, Kwd "=", Ident y ->  cfg.items <- (x,y) :: cfg.items 
             | Ident x, Kwd "=", Int y ->  cfg.items <- (x,(string_of_int y)) :: cfg.items 
         		| _ -> print_endline "Error;"
     done

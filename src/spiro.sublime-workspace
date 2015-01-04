@@ -1,0 +1,600 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"draw",
+				"draw_circle"
+			],
+			[
+				"ri",
+				"right_point"
+			],
+			[
+				"make",
+				"make_point"
+			],
+			[
+				"o",
+				"origin"
+			],
+			[
+				"scree",
+				"screen_size_x"
+			],
+			[
+				"sc",
+				"screen_size_y"
+			],
+			[
+				"ocaml",
+				"ocamlbuild"
+			],
+			[
+				"Sys",
+				"system"
+			]
+		]
+	},
+	"buffers":
+	[
+		{
+			"contents": "(* This file is part of Spiro.\n\n    Spiro is free software: you can redistribute it and/or modify\n    it under the terms of the GNU General Public License as published by\n    the Free Software Foundation, either version 3 of the License, or\n    (at your option) any later version.\n\n    Spiro is distributed in the hope that it will be useful,\n    but WITHOUT ANY WARRANTY; without even the implied warranty of\n    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n    GNU General Public License for more details.\n\n    You should have received a copy of the GNU General Public License\n    along with Spiro.  If not, see <http://www.gnu.org/licenses/>.\n\n*)\n\n(** This file contains the main loop of the application. *)\nopen Script;;\nopen Drawables;;\nopen Graphics;;\nopen Genlex;;\nopen Helper;;\nopen Files;;\nopen Printf;;\nopen String;;\nopen Filename;;\n(* open Unix;; *)\nopen Sys;;\nopen Printexc;;\nopen Transformation;;\n\nexception Session_End;;\nexception Unknown_Command;;\nexception Syntax_Error ;;\nexception File_Not_Existing ;;\n\n(** the session state is stored here *)\ntype session_state_type = \n{ \n	mutable repeat   : int;\n	mutable interp   : interpreter_state_type;\n   	mutable active   : bool ; 		    (* command loop is still active *)\n   	mutable screen_size_x : int;\n   	mutable screen_size_y : int;          \n	mutable editor   : string         \n};;\n  \n(* setup the initial state of the application *)\nlet state = { \n	active = true; \n	repeat = 1;\n	interp=make_interpreter();\n    screen_size_x = 900;\n    screen_size_y = 900;\n	editor=\"gedit\" \n};;\n\nlet reset_frame f = \n		f.origin <- make_point 0 0;\n		f.turn <- 0.0;\n		f.scale <- 1.0 \n;;\n\nlet root_frame = { origin = make_point 0 0; turn=0.0; scale=1.0 } ;;\n\n(** get next token; if there is nothing found we return \"\" keyword in order \n *  to simplyfy the parsing of the command line arguments. \n *)\nlet next_token t =\n  try\n    Stream.next t\n  with Stream.Failure -> \n    (Kwd \"\")\n;;\n\n(* get a point from the input stream *)\nlet get_point t =\n  let pnt = ( next_token t, next_token t, next_token t) in \n    match pnt with \n        Int x, Kwd \"/\", Int y -> make_point x y \n			| Kwd \"\", Kwd \"\", Kwd \"\" -> make_point 0 0\n      | _ -> raise Syntax_Error \n;;\n\n(* readin a given distance *)\nlet get_distance t = \n  let dist = next_token t in \n    match dist with \n      Int x ->  x\n      | _ -> raise Syntax_Error   \n;;\n\n(** get a syntactical element <name> from the input stream *)\nlet get_name t =\n  let name = next_token t in\n  match name with \n    Ident x -> x;\n    | _ -> raise Syntax_Error \n;;\n        \n(** set the cursor to the specified point *)\nlet do_set t = \n  add state.interp (Set (get_point t));  \n;; \n\n(** move the cursor *)\nlet do_move t =\n	match next_token t, next_token t with\n		Int a, Int b ->\n				 add state.interp (Move { dx=a; dy=b})\n		| _ -> raise Syntax_Error\n;;\n\n(** set the turn value *)\nlet do_turn t = \n		match next_token t with\n		  Int a -> add state.interp (Rotate (rad_from_deg (float_of_int a)))\n		| Float a -> add state.interp (Rotate (rad_from_deg a))\n		| _ -> raise Syntax_Error\n;;\n\nlet do_scale t = \n		match next_token t with\n		  Int a -> add state.interp (Scale (float_of_int a))\n		| Float a -> add state.interp (Scale a)\n		| _ -> raise Syntax_Error\n;;\n\n(** create a rectangle *)\nlet do_rectangle t = \n	let p = get_point t in\n 		add state.interp (Rectangle (make_rectangle p.x p.y));  \n;;\n\n(** create a circle *)\nlet do_circle t =\n  let r = get_distance t in\n 	add state.interp (Circle (make_circle r));;      \n\n(** draw a line *)\nlet do_line t = \n  let p = get_point t in\n  	add state.interp (Line (make_line p.x p.y));;      \n\n(** store the current a meta file with a given name and start a new one *)\nlet do_store t = \n  let name = get_name t in\n  	store state.interp name \n;;\n\n(** clear the screen and the current metafile *)\nlet do_clear t =\n	clear_graph () ;\n	root_frame.turn <- 0.0;\n	root_frame.scale <- 1.0;\n	root_frame.origin <- make_point 0 0;\n	set_cursor state.interp (make_point 0 0) ;\n	clear_metafile state.interp\n;;\n\n(** draw either the current matafile or a names metafile *)\nlet do_draw t =\n  match next_token t, next_token t, next_token t with\n      Int x, Kwd \"/\", Int y -> display state.interp root_frame \"\"\n    | Ident name, _ , _ -> add state.interp (Draw (get_metafile state.interp name))\n    | _ -> display state.interp root_frame \"\"\n;;  \n\n(** set the screen dimensions *)\nlet do_resize x y = \n  state.screen_size_x <- x;\n  state.screen_size_y <- y;\n  resize_window state.screen_size_x state.screen_size_y \n;;\n  \n(** resize the visible canvas *)\nlet do_screen t =\n  match Stream.next t, Stream.next t with\n      Int x, Int y -> do_resize x y\n    | Int x, _ -> do_resize x state.screen_size_y\n    | _ -> raise Syntax_Error\n;;\n\n(** list the avaiable metafiles *)\nlet do_list t =\n  match next_token t with\n    | Ident a -> display_source (get_metafile state.interp a) \n    | _ -> display_source (get_metafile state.interp \"\") \n;; \n\n(** print a few state informations *)\nlet do_info t = \n	printf \" Scale=%f, Turn=%f, origin=%s, screen_size=%dx%d \\n\" \n				root_frame.scale root_frame.turn \n				(Drawables.to_string root_frame.origin)\n				state.screen_size_x state.screen_size_y\n;;\n\n(** Save the given metafile f into file with the name f.mf *) \nlet do_save t =\n	match next_token t with\n		| Ident name -> let f = get_metafile state.interp name in\n							let chn = open_out (name ^ \".mf\") in\n								display_source ~chan:chn f;\n								close_out chn;\n		| _ -> raise Syntax_Error\n;;\n\n(** the list of commands *)\nlet lexer = make_lexer [ \n			(* grafical commands *)\n			\"rect\"; \"circle\"; \"line\"; \n			\"quit\"; \"set\" ; \"move\"; \"turn\"; \"scale\" ; \n\n			(* online dialog *)\n			\"draw\"; \"!\"; \"?\" ;\n			\"save\"; \"load\"; \"edit\";\n			(* screen related command  *)\n			\"screen\"; \"clear\" ; \n			(* metafile commands *)\n			\"store\"; \"dir\"; \"list\";\n			\n			(* argument elements *)\n			\"/\"; \",\"; 			\n			 ]\n;;\n\n(** interpret a command and execute it *)\nlet rec execute_command token =\n    match (Stream.next token) with\n			(* cursor movements *)\n        	  Kwd \"move\"   -> do_move token\n			| Kwd \"set\"    -> do_set token				\n			| Kwd \"turn\"   -> do_turn token\n			| Kwd \"scale\"  -> do_scale token \n			(* grafical object *)\n      		| Kwd \"rect\"   -> do_rectangle token\n      		| Kwd \"circle\" -> do_circle token\n      		| Kwd \"line\"   -> do_line token        \n      		| Kwd \"draw\"   -> do_draw token\n			| Int value    -> add state.interp (Repeat value); execute_command token\n			(* management functions *)												\n			| Kwd \"clear\"  -> do_clear token\n      		| Kwd \"quit\"   -> raise Session_End\n      		| Kwd \"store\"  -> do_store token      \n      		| Kwd \"screen\" -> do_screen token		 \n			| Kwd \"dir\"    -> list_metafiles state.interp\n			| Kwd \"list\"   -> do_list token\n			| Kwd \"!\"      -> do_batch (get_name token)\n			| Kwd \"save\"   -> do_save token\n			| Kwd \"load\"   -> do_load token\n			| Kwd \"edit\"   -> do_edit token\n			| Kwd \"?\"      -> do_info token\n			(* if no keyword is matching, use the identifer as metafile name *)\n      		| Ident name   -> ( try add state.interp (Draw (get_metafile state.interp name))\n					 			with Metafile_Not_Found -> raise Unknown_Command )\n			(* if nothing matches *)		\n		  	| _ ->  raise Unknown_Command\n	and do_batch name = \n		let chan = open_in name in\n		try 	\n			while true do		\n   				let cmd = input_line chan in\n					if (length cmd) > 0 then if (get cmd 0) != '#' then begin				\n						let token = lexer (Stream.of_string cmd) in\n							execute_command token;\n					end \n			done\n		with End_of_file -> close_in chan		\n		\n	and do_edit t =\n		match next_token t with\n			Ident name -> \n				let f = get_metafile state.interp name in\n				let tmp = temp_file name \".mf\" in\n				let chn = open_out tmp in\n					display_source ~chan:chn f;\n					close_out chn;\n					let result = command (\"vi \" ^ tmp) in begin\n						if( result != 0 ) then\n						    printf \"Error ***\\n\";\n					end \n			| _ -> raise Syntax_Error\n\n	and do_load t =\n		let name = get_name t in \n			do_clear t;\n			do_batch (name ^ \".mf\");\n			store state.interp name \n;;\n\n(** toplevel starts here *)\nopen_graph \"\";;\n\nlet cfg : config_type = make_config_type ;;\n\nload_config \"spiro.cfg\" cfg ;;\n\nstate.screen_size_x = config_int \"screen_size_x\" cfg;;\nstate.screen_size_y = config_int \"screen_size_y\" cfg;;\n\nresize_window 600 600 (*state.screen_size_x state.screen_size_y*) ;;\n\nset_window_title \"Spiro\";;\n\nprintf \"Spiro\\n\";;\nprintf \"Copyright 2014,2015 Michael Erdmann (michael.erdmann@snafu.de)\\n\\n\";;\n\nwhile state.active do\n	try \n   		begin   \n			reset_frame root_frame; \n			display state.interp root_frame \"\";\n     		print_point(get_cursor state.interp);\n    		print_string \" ? \";  \n    		let cmd = read_line () in\n				if (length cmd)>0 then\n  			   		let token = lexer (Stream.of_string cmd) in\n    					execute_command token;         \n  		end \n	with x ->\n		match x with\n     	 	Session_End -> \n         		print_endline \"done.\";\n       			state.active <- false;\n       		| File_Not_Existing -> print_endline \"Error: metafile not exiting ****\"\n       		| Unknown_Command -> print_endline \"Error: unkown command ****\"\n       		| Syntax_Error -> print_endline \"Error: Syntactical Error ****\" \n			| Metafile_Not_Found -> printf \"Metafile not found ****\\n\"      \n       		| _ as exn -> printf \"Exception %s *******\\n\" (Printexc.to_string exn )\ndone ;;\n\n",
+			"file": "main.ml",
+			"file_size": 9664,
+			"file_write_time": 130648346478608484,
+			"settings":
+			{
+				"buffer_size": 9319,
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "script.mli",
+			"settings":
+			{
+				"buffer_size": 2672,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"contents": "(*  This file is part of Spiro.\n\n    Spiro is free software: you can redistribute it and/or modify\n    it under the terms of the GNU General Public License as published by\n    the Free Software Foundation, either version 3 of the License, or\n    (at your option) any later version.\n\n    Spiro is distributed in the hope that it will be useful,\n    but WITHOUT ANY WARRANTY; without even the implied warranty of\n    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n    GNU General Public License for more details.\n\n    You should have received a copy of the GNU General Public License\n    along with Spiro.  If not, see <http://www.gnu.org/licenses/>.\n  \n*)\n\nopen Drawables;;\n\nlet pi = 4.0 *. atan 1.0;;\n\nlet rad_from_deg x = 2.0 *. pi *. x /. 360.0 ;;\nlet deg_from_rad x = 360.0 *. x /. (2.0 *. pi) ;; 	\n\n(* rotate by a given degree *)\nlet rotate turn p = \n	let x = float_of_int p.x in\n		let y = float_of_int p.y in \n			let result = make_point 0 0 in\n				result.x <- int_of_float ( (cos turn) *. x -. (sin turn) *. y );\n				result.y <- int_of_float ( (sin turn) *. x +. (cos turn) *. y );\n				result\n;;		\n	 \n(* scale *)	\nlet scale s p = \n	make_point (int_of_float (s *. (float_of_int p.x))) \n	           (int_of_float (s *. (float_of_int p.y)))\n\n(* perform a translation *)						\nlet translation p q =\n	let result = make_point 0 0 in\n			result.x <- p.x + q.x;\n			result.y <- p.y + q.y;\n			result\n;;\n\n(* convert an integer value to a float *)\nlet scale_int x f = int_of_float( f *. (float_of_int x) );;\n",
+			"file": "transformation.ml",
+			"file_size": 1515,
+			"file_write_time": 130647931846072541,
+			"settings":
+			{
+				"buffer_size": 1515,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "Makefile",
+			"settings":
+			{
+				"buffer_size": 465,
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "helper.ml",
+			"settings":
+			{
+				"buffer_size": 1717,
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "drawables.ml",
+			"settings":
+			{
+				"buffer_size": 1495,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "drawables.mli",
+			"settings":
+			{
+				"buffer_size": 1277,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "script.ml",
+			"settings":
+			{
+				"buffer_size": 6715,
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "/C/Users/MIchael/Documents/Sources/spiro/run.sh",
+			"settings":
+			{
+				"buffer_size": 108,
+				"line_ending": "Windows"
+			}
+		}
+	],
+	"build_system": "Packages/Makefile/Make.sublime-build",
+	"command_palette":
+	{
+		"height": 0.0,
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"console":
+	{
+		"height": 0.0,
+		"history":
+		[
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"expanded_folders":
+	[
+		"/C/Users/MIchael/Documents/Sources/spiro",
+		"/C/Users/MIchael/Documents/Sources/spiro/src"
+	],
+	"file_history":
+	[
+		"/C/Users/MIchael/Documents/Sources/spiro/.gitignore",
+		"/C/Users/MIchael/Documents/Sources/spiro/spiro.cfg",
+		"/C/Users/MIchael/Documents/Sources/spiro/src/script.ml",
+		"/C/Users/MIchael/Documents/Sources/spiro/src/helper.ml",
+		"/C/Users/MIchael/Documents/Sources/spiro/run.sh",
+		"/C/Users/MIchael/Documents/Sources/spiro/src/main.mli",
+		"/C/Users/MIchael/Documents/Sources/spiro/src/Makefile",
+		"/C/Users/MIchael/Documents/Sources/spiro/src/drawables.ml",
+		"/C/Users/MIchael/Documents/Sources/spiro/circles.mf",
+		"/C/Users/MIchael/Documents/Sources/spiro/LICENSE",
+		"/C/Users/MIchael/Documents/Sources/spiro/main.byte",
+		"/C/Users/MIchael/Documents/Sources/spiro/src/files.ml",
+		"/C/Users/MIchael/Documents/Sources/spiro/src/drawables.mli",
+		"/C/Users/MIchael/Documents/Sources/spiro/powa.cfg",
+		"/C/Users/MIchael/Documents/Sources/spiro/src/script.mli",
+		"/C/Users/MIchael/Documents/Sources/spiro/src/spiro.sublime-project",
+		"/C/Users/MIchael/Documents/Sources/spiro/src/files.mli",
+		"/D/Michael/OneDrive/www/WebMatrix/homepage/theme/rt14gs/css/fonts.css",
+		"/D/Michael/OneDrive/www/WebMatrix/homepage/theme/rt14gs/css/structure.css",
+		"/D/Michael/OneDrive/www/WebMatrix/homepage/theme/rt14gs/css/styles.css",
+		"/D/Michael/OneDrive/www/WebMatrix/homepage/theme/rt14gs/functions.php",
+		"/D/Michael/OneDrive/www/WebMatrix/homepage/theme/rt14gs/template.php",
+		"/Y/Software/Archive/old_cds/fd_pcwdsk1/src/clipline.c",
+		"/Y/Software/Archive/old_cds/fd_case/case/idl/dmlpps.c",
+		"/D/Michael/OneDrive/www/WebMatrix/homepage/theme/rt14gs/js/dd_belatedpng.js",
+		"/C/Users/MIchael/AppData/Roaming/Sublime Text 3/Packages/Default/Default (Windows).sublime-keymap",
+		"/D/Michael/OneDrive/www/WebMatrix/homepage/data/pages/muon-detector.xml",
+		"/D/Michael/OneDrive/www/WebMatrix/homepage/data/pages/a-google-script-example.xml",
+		"/C/Users/MIchael/Documents/Sources/tam/tamtest.gpr",
+		"/C/Users/MIchael/Documents/Sources/tam/trunk/Makefile",
+		"/C/Users/MIchael/Documents/Sources/tam/.gitignore",
+		"/C/Users/MIchael/Documents/Sources/tam/tam.gpr",
+		"/C/Users/MIchael/Documents/Sources/tam/README.md",
+		"/C/Users/MIchael/Documents/Sources/tam/.git/config",
+		"/C/Users/MIchael/Documents/adventure/trunk/Location.cpp",
+		"/C/Users/MIchael/Documents/Sources/Adventure/trunk/Door.cpp"
+	],
+	"find":
+	{
+		"height": 34.0
+	},
+	"find_in_files":
+	{
+		"height": 0.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+			"do_save",
+			"rect",
+			"scale_int",
+			"*)",
+			"do_line",
+			"Move",
+			"do_info",
+			"print_point",
+			"																	",
+			"  ",
+			"drawables"
+		],
+		"highlight": false,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"selected": 7,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "main.ml",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 9319,
+						"regions":
+						{
+							"mark":
+							{
+								"flags": 144,
+								"icon": "dot",
+								"regions":
+								[
+								],
+								"scope": "mark"
+							}
+						},
+						"selection":
+						[
+							[
+								4944,
+								4944
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/OCaml/OCaml.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 3056.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "script.mli",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 2672,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/OCaml/OCaml.tmLanguage",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": -0.0,
+						"translation.y": 540.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 6,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "transformation.ml",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1515,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1112,
+								1112
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/OCaml/OCaml.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 4,
+					"type": "text"
+				},
+				{
+					"buffer": 3,
+					"file": "Makefile",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 465,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Makefile/Makefile.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 3,
+					"type": "text"
+				},
+				{
+					"buffer": 4,
+					"file": "helper.ml",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1717,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1253,
+								1253
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/OCaml/OCaml.tmLanguage",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 259.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 7,
+					"type": "text"
+				},
+				{
+					"buffer": 5,
+					"file": "drawables.ml",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1495,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1432,
+								1432
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/OCaml/OCaml.tmLanguage",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 6,
+					"file": "drawables.mli",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1277,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/OCaml/OCaml.tmLanguage",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 5,
+					"type": "text"
+				},
+				{
+					"buffer": 7,
+					"file": "script.ml",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 6715,
+						"regions":
+						{
+							"mark":
+							{
+								"flags": 144,
+								"icon": "dot",
+								"regions":
+								[
+									[
+										4317,
+										4317
+									]
+								],
+								"scope": "mark"
+							}
+						},
+						"selection":
+						[
+							[
+								4124,
+								4124
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/OCaml/OCaml.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 2322.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				},
+				{
+					"buffer": 8,
+					"file": "/C/Users/MIchael/Documents/Sources/spiro/run.sh",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 108,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								108,
+								108
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/ShellScript/Shell-Unix-Generic.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 8,
+					"type": "text"
+				}
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 34.0
+	},
+	"input":
+	{
+		"height": 0.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"project": "spiro.sublime-project",
+	"replace":
+	{
+		"height": 48.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 0.0,
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_symbol":
+	{
+		"height": 0.0,
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"selected_group": 0,
+	"settings":
+	{
+	},
+	"show_minimap": true,
+	"show_open_files": false,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 232.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
+}

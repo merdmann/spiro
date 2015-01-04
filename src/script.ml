@@ -87,13 +87,13 @@ let set_cursor interp value =
 (* list the files stored in the interpreter *)
 let list_metafiles interp = 
 	List.iter (fun x -> 
-			let name = (fst x) in
-			let file = (snd x) in
-		  	if name = "" then
-					printf "%s %d\n" file.name (List.length file.items)
-				else 
-					printf "%s %d\n" name (List.length file.items) 
-	  ) interp.files 
+		let name = (fst x) in
+		let file = (snd x) in
+		if name = "" then
+			printf "%s %d\n" file.name (List.length file.items)
+		else 
+			printf "%s %d\n" name (List.length file.items) 
+	) interp.files 
 ;;
 
 (* store the current metafile with a given name in the interpreter *)
@@ -105,8 +105,8 @@ let store interp name =
 	if (exist name) then
 		interp.files <- List.remove_assoc name interp.files ;
 				
-  interp.current.name <- name ;
-  interp.files <- List.append interp.files [ ( name, interp.current ) ];
+  	interp.current.name <- name ;
+  	interp.files <- List.append interp.files [ ( name, interp.current ) ];
 	interp.current <- make_metafile ""
 ;;
 
@@ -133,46 +133,44 @@ let get_metafile interp name =
 
 (* draw the metafile in a given frame *)
 let rec draw interp f frame =
-		let cursor = make_point 0 0 in
-		let myframe = frame in 
-		let repeat = ref 1 in
+	let cursor = make_point 0 0 in
+	let myframe = frame in 
+	let repeat = ref 1 in
 
-	
-	  (* printf "Draw %s %s\n" f.name (frame_to_string myframe); *)
-		let tr p = translation ( scale myframe.scale (rotate myframe.turn p)) myframe.origin in  
-		
+	(*printf "Draw %s %s\n" f.name (frame_to_string myframe); *)
+	let tr p = translation ( scale myframe.scale (rotate myframe.turn p)) myframe.origin in  
 		List.iter (fun o ->
 			let c = tr cursor in  
-    			let ox = c.x  in
-    				let oy = c.y  in 
-      					moveto ox oy;
-						draw_circle ox oy 5;
-				
-  						match o with
-          	  			  	  (Line a)       -> let p = tr a.right_point in rlineto p.x p.y
-        					| (Circle a)     -> draw_circle ox oy (scale_int a.radius myframe.scale)
-        					| (Rectangle a)  -> let connect x y  = 
-											    let q = tr (translation (make_point x y) cursor) in lineto q.x q.y 
-													in
+	    		let ox = c.x  in
+	    			let oy = c.y  in 
+	      				moveto ox oy;				
+	  					match o with
+	          	  			(Line a)       -> let p = tr (translation a.right_point cursor) in
+	          	  								lineto p.x p.y
+	        			  | (Circle a)     -> draw_circle ox oy (scale_int a.radius myframe.scale)
+	        			  | (Rectangle a)  -> let connect x y  = 
+											  	let q = tr (translation (make_point x y) cursor) in 
+											  		lineto q.x q.y in
 														connect a.right_corner.x 0;
 														connect a.right_corner.x a.right_corner.y;
-														connect  0 a.right_corner.y;
+														connect 0 a.right_corner.y;
 														connect 0 0
-        					| (Point a)      -> plot ox oy
-        					| (Draw a)       -> myframe.origin <- cursor ; 
-							   	for i=1 to !repeat do draw interp a myframe done
-							| (Scale a)      -> myframe.scale <- a
-							| (Rotate a)     -> myframe.turn <- myframe.turn +. a 
-        					| (Set a)        -> cursor.x <- a.y ; cursor.y <- a.y
-							| (Move a)       -> cursor.x <- cursor.x + a.dx; cursor.y <- cursor.y + a.dy 
-							| (Repeat a)     -> 
-							   (* in case of a repeat we create a new reference fram *)
-							   			repeat := a 
-        					| _             -> print_endline "Unknown operation" 
-     	)
+	        			  | (Point a)      -> plot ox oy
+	        			  | (Draw a)       -> myframe.origin <- cursor ; 
+								   				for i=1 to !repeat do draw interp a myframe done
+						  | (Scale a)      -> myframe.scale <- a
+						  | (Rotate a)     -> myframe.turn <- myframe.turn +. a 
+	        			  | (Set a)        -> cursor.x <- a.x ; 
+	        			  					  cursor.y <- a.y
+						  | (Move a)       -> cursor.x <- cursor.x + a.dx; 
+											  cursor.y <- cursor.y + a.dy
+						  | (Repeat a)     -> (* in case of a repeat we create a new reference fram *)
+								   			  repeat := a 
+	        			  | _ 			   -> print_endline "Unknown operation"
+
+	    )
   	 	f.items ;
-			
-		interp.cursor <- cursor
+  	 	interp.cursor <- cursor
 ;;
 
 (* draw the commands which are stored in the interpreter *)

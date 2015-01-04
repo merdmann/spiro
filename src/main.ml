@@ -129,9 +129,8 @@ let do_scale t =
 
 (** create a rectangle *)
 let do_rectangle t = 
-  let lx = get_distance t in
-  	let ly = get_distance t in 
-  add state.interp (Rectangle (make_rectangle lx ly));  
+	let p = get_point t in
+ 		add state.interp (Rectangle (make_rectangle p.x p.y));  
 ;;
 
 (** create a circle *)
@@ -254,15 +253,15 @@ let rec execute_command token =
 			| Kwd "edit"   -> do_edit token
 			| Kwd "?"      -> do_info token
 			(* if no keyword is matching, use the identifer as metafile name *)
-      		| Ident name   ->	( try add state.interp (Draw (get_metafile state.interp name))
-					 								with Metafile_Not_Found -> raise Unknown_Command )
+      		| Ident name   -> ( try add state.interp (Draw (get_metafile state.interp name))
+					 			with Metafile_Not_Found -> raise Unknown_Command )
 			(* if nothing matches *)		
 		  	| _ ->  raise Unknown_Command
-and do_batch name = 
+	and do_batch name = 
 		let chan = open_in name in
 		try 	
 			while true do		
-   			let cmd = input_line chan in
+   				let cmd = input_line chan in
 					if (length cmd) > 0 then if (get cmd 0) != '#' then begin				
 						let token = lexer (Stream.of_string cmd) in
 							execute_command token;
@@ -270,7 +269,7 @@ and do_batch name =
 			done
 		with End_of_file -> close_in chan		
 		
-and do_edit t =
+	and do_edit t =
 		match next_token t with
 			Ident name -> 
 				let f = get_metafile state.interp name in
@@ -284,11 +283,11 @@ and do_edit t =
 					end 
 			| _ -> raise Syntax_Error
 
-and do_load t =
-	let name = get_name t in 
-		do_clear t;
-		do_batch (name ^ ".mf");
-		store state.interp name 
+	and do_load t =
+		let name = get_name t in 
+			do_clear t;
+			do_batch (name ^ ".mf");
+			store state.interp name 
 ;;
 
 (** toplevel starts here *)
@@ -301,7 +300,7 @@ load_config "spiro.cfg" cfg ;;
 state.screen_size_x = config_int "screen_size_x" cfg;;
 state.screen_size_y = config_int "screen_size_y" cfg;;
 
-resize_window state.screen_size_x state.screen_size_y ;;
+resize_window 600 600 (*state.screen_size_x state.screen_size_y*) ;;
 
 set_window_title "Spiro";;
 

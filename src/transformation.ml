@@ -22,7 +22,6 @@ let pi = 4.0 *. atan 1.0;;
 let rad_from_deg x = 2.0 *. pi *. x /. 360.0 ;;
 let deg_from_rad x = 360.0 *. x /. (2.0 *. pi) ;; 	
 
-
 (* rotate by a given degree *)
 let rotate turn p = 
 	let x = float_of_int p.x in
@@ -37,12 +36,14 @@ let rotate turn p =
 let scale s p = 
 	make_point (int_of_float (s *. (float_of_int p.x))) 
 	           (int_of_float (s *. (float_of_int p.y)))
-						
+
+(* perform a translation *)						
 let translation p q =
-		let result = make_point 0 0 in
+	let result = make_point 0 0 in
 			result.x <- p.x + q.x;
 			result.y <- p.y + q.y;
 			result
 ;;
 
+(* convert an integer value to a float *)
 let scale_int x f = int_of_float( f *. (float_of_int x) );;

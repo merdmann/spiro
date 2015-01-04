@@ -34,7 +34,7 @@ let make_circle r = ( { radius = r } : circle_type );;
 let make_file file_name = { name=file_name } ;;
   
 (* print a point *)
-let to_string p = sprintf "[ %d/%d ]" p.x p.y ;;
+let to_string p = sprintf "%d/%d" p.x p.y ;;
 let print_point p =	printf "%s" (to_string p);;
 
 

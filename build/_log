@@ -1,0 +1,54 @@
+### Starting build.
+# Target: src, tags: {  }
+mkdir src
+# Target: src/main.mli.depends, tags: { extension:mli, file:src/main.mli, ocaml, ocamldep, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamldep.opt' -modules src/main.mli > src/main.mli.depends
+# Target: src/drawables.mli.depends, tags: { extension:mli, file:src/drawables.mli, ocaml, ocamldep, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamldep.opt' -modules src/drawables.mli > src/drawables.mli.depends
+# Target: src/helper.mli.depends, tags: { extension:mli, file:src/helper.mli, ocaml, ocamldep, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamldep.opt' -modules src/helper.mli > src/helper.mli.depends
+# Target: src/script.mli.depends, tags: { extension:mli, file:src/script.mli, ocaml, ocamldep, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamldep.opt' -modules src/script.mli > src/script.mli.depends
+# Target: src/drawables.cmi, tags: { byte, compile, extension:mli, file:src/drawables.mli, interf, ocaml, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamlc.opt' -c -I src -o src/drawables.cmi src/drawables.mli
+# Target: src/helper.cmi, tags: { byte, compile, extension:mli, file:src/helper.mli, interf, ocaml, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamlc.opt' -c -I src -o src/helper.cmi src/helper.mli
+# Target: src/script.cmi, tags: { byte, compile, extension:mli, file:src/script.mli, interf, ocaml, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamlc.opt' -c -I src -o src/script.cmi src/script.mli
+# Target: src/main.cmi, tags: { byte, compile, extension:mli, file:src/main.mli, interf, ocaml, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamlc.opt' -c -I src -o src/main.cmi src/main.mli
+# Target: src/main.ml.depends, tags: { extension:ml, file:src/main.ml, ocaml, ocamldep, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamldep.opt' -modules src/main.ml > src/main.ml.depends
+# Target: src/files.mli.depends, tags: { extension:mli, file:src/files.mli, ocaml, ocamldep, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamldep.opt' -modules src/files.mli > src/files.mli.depends
+# Target: src/transformation.mli.depends, tags: { extension:mli, file:src/transformation.mli, ocaml, ocamldep, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamldep.opt' -modules src/transformation.mli > src/transformation.mli.depends
+# Target: src/files.cmi, tags: { byte, compile, extension:mli, file:src/files.mli, interf, ocaml, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamlc.opt' -c -I src -o src/files.cmi src/files.mli
+# Target: src/transformation.cmi, tags: { byte, compile, extension:mli, file:src/transformation.mli, interf, ocaml, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamlc.opt' -c -I src -o src/transformation.cmi src/transformation.mli
+# Target: src/main.cmo, tags: { byte, compile, extension:cmo, extension:ml, file:src/main.cmo, file:src/main.ml, implem, ocaml, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamlc.opt' -c -I src -o src/main.cmo src/main.ml
+# Target: src/drawables.ml.depends, tags: { extension:ml, file:src/drawables.ml, ocaml, ocamldep, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamldep.opt' -modules src/drawables.ml > src/drawables.ml.depends
+# Target: src/files.ml.depends, tags: { extension:ml, file:src/files.ml, ocaml, ocamldep, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamldep.opt' -modules src/files.ml > src/files.ml.depends
+# Target: src/helper.ml.depends, tags: { extension:ml, file:src/helper.ml, ocaml, ocamldep, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamldep.opt' -modules src/helper.ml > src/helper.ml.depends
+# Target: src/script.ml.depends, tags: { extension:ml, file:src/script.ml, ocaml, ocamldep, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamldep.opt' -modules src/script.ml > src/script.ml.depends
+# Target: src/transformation.ml.depends, tags: { extension:ml, file:src/transformation.ml, ocaml, ocamldep, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamldep.opt' -modules src/transformation.ml > src/transformation.ml.depends
+# Target: src/drawables.cmo, tags: { byte, compile, extension:cmo, extension:ml, file:src/drawables.cmo, file:src/drawables.ml, implem, ocaml, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamlc.opt' -c -I src -o src/drawables.cmo src/drawables.ml
+# Target: src/files.cmo, tags: { byte, compile, extension:cmo, extension:ml, file:src/files.cmo, file:src/files.ml, implem, ocaml, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamlc.opt' -c -I src -o src/files.cmo src/files.ml
+# Target: src/helper.cmo, tags: { byte, compile, extension:cmo, extension:ml, file:src/helper.cmo, file:src/helper.ml, implem, ocaml, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamlc.opt' -c -I src -o src/helper.cmo src/helper.ml
+# Target: src/script.cmo, tags: { byte, compile, extension:cmo, extension:ml, file:src/script.cmo, file:src/script.ml, implem, ocaml, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamlc.opt' -c -I src -o src/script.cmo src/script.ml
+# Target: src/transformation.cmo, tags: { byte, compile, extension:cmo, extension:ml, file:src/transformation.cmo, file:src/transformation.ml, implem, ocaml, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamlc.opt' -c -I src -o src/transformation.cmo src/transformation.ml
+# Target: src/main.byte, tags: { byte, dont_link_with, extension:byte, file:src/main.byte, link, ocaml, program, quiet }
+'''c:\Users\MIchael\OCPWin64\bin/ocamlc.opt' graphics.cma src/drawables.cmo src/files.cmo src/helper.cmo src/transformation.cmo src/script.cmo src/main.cmo -o src/main.byte
+# Compilation successful.
